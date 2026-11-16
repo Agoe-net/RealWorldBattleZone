@@ -9,3 +9,7 @@ dist/
 *.daynight-backup
 
 *-backup*
+
+*.backup*
+*.camera-backup
+*.daynight-backup
