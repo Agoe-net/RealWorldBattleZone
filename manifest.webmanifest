@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "RealWorldBattleZone",
+  "short_name": "RWBZ",
+  "description": "RealWorldBattleZone 3D mobile game",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101820",
+  "theme_color": "#101820",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

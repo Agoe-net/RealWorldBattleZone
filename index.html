@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#101820">
+  <meta name="description" content="RealWorldBattleZone 3D mobile game prototype">
+  <link rel="manifest" href="/RealWorldBattleZone/manifest.webmanifest">
+  <link rel="icon" href="/RealWorldBattleZone/icon.svg" type="image/svg+xml">
+  <title>RealWorldBattleZone</title>
+  <script type="module" crossorigin src="/RealWorldBattleZone/assets/index-B8OvAKrX.js"></script>
+  <link rel="stylesheet" crossorigin href="/RealWorldBattleZone/assets/index-CJ1Gm2-t.css">
+</head>
+<body>
+  <main id="game">
+    <div id="hud">
+      <div class="game-title">REAL WORLD BATTLE ZONE</div>
+      <div id="status">Loading game...</div>
+      <div class="health-label">HP <span id="healthText">100 / 100</span></div>
+      <div id="health"><div id="healthBar"></div></div>
+    </div>
+
+    <div id="minimap" aria-label="Mini map"></div>
+
+    <div id="controls-hint">Drag the screen to rotate camera</div>
+
+    <div id="joystick" aria-label="Movement joystick">
+      <div id="stick"></div>
+    </div>
+
+    <button id="jumpBtn" type="button">JUMP</button>
+    <button id="installBtn" type="button" hidden>INSTALL APP</button>
+  </main>
+
+</body>
+</html>
