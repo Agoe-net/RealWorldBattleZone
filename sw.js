@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rwbz-pwa-v2';
+const CACHE_NAME = 'rwbz-pwa-v3';
 const CORE_FILES = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', event => {
