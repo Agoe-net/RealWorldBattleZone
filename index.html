@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -11,6 +12,8 @@
 </head>
 <body>
   <main id="game">
+
+    <!-- Player HUD -->
     <div id="hud">
       <div class="game-title">REAL WORLD BATTLE ZONE</div>
       <div id="status">Loading game...</div>
@@ -18,8 +21,28 @@
       <div id="health"><div id="healthBar"></div></div>
     </div>
 
+    <!-- Match information -->
+    <div id="matchInfo">
+      <div class="match-box">
+        <span>ALIVE</span>
+        <strong id="aliveCount">1</strong>
+      </div>
+      <div class="match-box">
+        <span>MATCH</span>
+        <strong id="matchTimer">00:00</strong>
+      </div>
+    </div>
+
+    <!-- Compass -->
+    <div id="compass">N　 NE　 E　 SE　 S</div>
+
+    <!-- Mini map -->
     <div id="minimap" aria-label="Mini map"></div>
 
+    <!-- Aim -->
+    <div id="crosshair">＋</div>
+
+    <!-- Existing controls -->
     <div id="controls-hint">Drag the screen to rotate camera</div>
 
     <div id="joystick" aria-label="Movement joystick">
@@ -27,7 +50,23 @@
     </div>
 
     <button id="jumpBtn" type="button">JUMP</button>
+
+    <!-- New action controls -->
+    <button id="fireBtn" type="button">FIRE</button>
+    <button id="crouchBtn" type="button">CROUCH</button>
+
+    <!-- Weapon slots -->
+    <div id="weaponHUD">
+      <button class="weapon-slot active" data-weapon="pistol">PISTOL</button>
+      <button class="weapon-slot" data-weapon="rifle">RIFLE</button>
+      <button class="weapon-slot" data-weapon="shotgun">SHOTGUN</button>
+      <button class="weapon-slot" data-weapon="sniper">SNIPER</button>
+    </div>
+
+    <div id="ammoInfo">AMMO: <span id="ammoCount">30</span></div>
+
     <button id="installBtn" type="button" hidden>INSTALL APP</button>
+
   </main>
 
   <script type="module" src="/src/main.js"></script>

@@ -163,3 +163,172 @@ html, body {
 #joystick, #jumpBtn {
   -webkit-touch-callout: none;
 }
+
+/* ===== FREE FIRE STYLE HUD ===== */
+
+#matchInfo {
+  position: absolute;
+  z-index: 12;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.match-box {
+  min-width: 65px;
+  padding: 6px 10px;
+  border: 1px solid #ffffff99;
+  border-radius: 8px;
+  background: #101820cc;
+  color: white;
+  text-align: center;
+  text-shadow: 1px 1px 2px black;
+}
+
+.match-box span {
+  display: block;
+  font-size: 9px;
+  color: #ffd54a;
+  font-weight: bold;
+}
+
+.match-box strong {
+  display: block;
+  font-size: 15px;
+}
+
+#compass {
+  position: absolute;
+  z-index: 8;
+  top: 132px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: #101820aa;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+#crosshair {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 30px;
+  font-weight: bold;
+  text-shadow: 0 0 5px black;
+  pointer-events: none;
+}
+
+#fireBtn {
+  position: absolute;
+  z-index: 15;
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(125px, calc(env(safe-area-inset-bottom) + 125px));
+  width: 76px;
+  height: 76px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: #d62828dd;
+  color: white;
+  font-size: 16px;
+  font-weight: 900;
+  text-shadow: 1px 1px 3px black;
+  touch-action: none;
+}
+
+#fireBtn:active {
+  background: #ff2525;
+  transform: scale(.94);
+}
+
+#crouchBtn {
+  position: absolute;
+  z-index: 15;
+  right: max(28px, env(safe-area-inset-right));
+  bottom: max(210px, calc(env(safe-area-inset-bottom) + 210px));
+  padding: 9px 12px;
+  border: 1px solid white;
+  border-radius: 20px;
+  background: #263746dd;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  touch-action: none;
+}
+
+#weaponHUD {
+  position: absolute;
+  z-index: 14;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+}
+
+.weapon-slot {
+  padding: 9px 7px;
+  border: 1px solid #ffffff99;
+  border-radius: 7px;
+  background: #17212cdd;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+  touch-action: manipulation;
+}
+
+.weapon-slot.active {
+  border: 2px solid #ffd54a;
+  background: #44515c;
+  color: #ffd54a;
+}
+
+#ammoInfo {
+  position: absolute;
+  z-index: 12;
+  right: 15px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: #101820dd;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+#fireBtn, #crouchBtn, .weapon-slot {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@media (max-width: 480px) {
+  #matchInfo {
+    top: max(12px, env(safe-area-inset-top));
+  }
+
+  #compass {
+    top: 120px;
+  }
+
+  #fireBtn {
+    width: 68px;
+    height: 68px;
+    bottom: max(120px, calc(env(safe-area-inset-bottom) + 120px));
+  }
+
+  .weapon-slot {
+    padding: 8px 5px;
+    font-size: 8px;
+  }
+}

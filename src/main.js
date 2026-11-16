@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 import '../style.css';
+import { createMultiplayer } from './multiplayer.js';
+import { createJamshedpurMap } from './world/jamshedpur.js';
+import { createOSMMap } from './world/osm-map.js';
+import { createGreenery } from './world/greenery.js';
+import { createInfrastructure } from './world/infrastructure.js';
+import { createTraffic } from './vehicles/traffic.js';
 
 // REALWORLD BATTLE ZONE - WEB/PWA PROTOTYPE
 
@@ -11,66 +17,152 @@ const stick = document.querySelector('#stick');
 const jumpButton = document.querySelector('#jumpBtn');
 const installButton = document.querySelector('#installBtn');
 
+// VISIBLE JAVASCRIPT TEST
+if (statusText) {
+  statusText.textContent = 'GAME JAVASCRIPT STARTED';
+  statusText.style.cssText =
+    'display:block!important;position:fixed;top:80px;left:10px;z-index:99999;color:white;background:#b00020;padding:12px;font-size:16px;';
+}
+
+
 if (!game) throw new Error('Missing #game element in index.html');
+
+// RWBZ DEBUG PANEL
+const debugPanel = document.createElement('div');
+debugPanel.id = 'rwbz-debug';
+debugPanel.textContent = '3D DEBUG: Starting...';
+debugPanel.style.cssText =
+  'position:fixed;top:420px;left:10px;z-index:999999;' +
+  'background:#111;color:#00ff66;padding:10px;' +
+  'font-size:12px;max-width:95%;white-space:pre-wrap;';
+document.body.appendChild(debugPanel);
+
+window.addEventListener('error', e => {
+  debugPanel.textContent = 'JAVASCRIPT ERROR: ' + e.message;
+});
+window.addEventListener('unhandledrejection', e => {
+  debugPanel.textContent = 'PROMISE ERROR: ' + e.reason;
+});
+
 
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 } catch (error) {
   if (statusText) statusText.textContent = 'This browser cannot start WebGL.';
   throw error;
 }
 
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setPixelRatio(1.0);
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = false;
 renderer.domElement.style.touchAction = 'none';
 game.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8bc9ed);
-scene.fog = new THREE.Fog(0x8bc9ed, 65, 190);
+scene.fog = new THREE.Fog(0x8bc9ed, 650, 1300);
 
-const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 2000);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x64744c, 1.8));
+const skyLight = new THREE.HemisphereLight(0xffffff, 0x64744c, 1.8);
+scene.add(skyLight);
 const sun = new THREE.DirectionalLight(0xffffff, 2);
 sun.position.set(35, 55, 25);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
+
 scene.add(sun);
+let osmMap = null;
 
-// Ground and road
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(250, 250),
-  new THREE.MeshStandardMaterial({ color: 0x668d49, roughness: 1 })
+// MOON AND NIGHT STARS
+const moon = new THREE.Mesh(
+  new THREE.SphereGeometry(7, 20, 16),
+  new THREE.MeshBasicMaterial({ color: 0xfff1c2 })
 );
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
+moon.position.set(-90, 75, -120);
+scene.add(moon);
 
-const road = new THREE.Mesh(
-  new THREE.PlaneGeometry(12, 190),
-  new THREE.MeshStandardMaterial({ color: 0x44484a, roughness: 1 })
-);
-road.rotation.x = -Math.PI / 2;
-road.position.y = 0.025;
-road.receiveShadow = true;
-scene.add(road);
+const moonLight = new THREE.DirectionalLight(0xb9cfff, 0);
+moonLight.position.set(-90, 75, -120);
+scene.add(moonLight);
 
-for (let z = -90; z < 95; z += 12) {
-  const marking = new THREE.Mesh(
-    new THREE.BoxGeometry(0.22, 0.035, 5),
-    new THREE.MeshStandardMaterial({ color: 0xf4f0d8 })
+
+const starPositions = [];
+for (let i = 0; i < 250; i++) {
+  starPositions.push(
+    (Math.random() - 0.5) * 900,
+    80 + Math.random() * 180,
+    (Math.random() - 0.5) * 900
   );
-  marking.position.set(0, 0.06, z);
-  scene.add(marking);
 }
+
+const starGeometry = new THREE.BufferGeometry();
+starGeometry.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute(starPositions, 3)
+);
+
+const starMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 1.5,
+  transparent: true,
+  opacity: 0
+});
+
+const stars = new THREE.Points(starGeometry, starMaterial);
+scene.add(stars);
+
+// REALISTIC DAY AND NIGHT CYCLE
+const daySky = new THREE.Color(0x8bc9ed);
+const nightSky = new THREE.Color(0x07152f);
+const sunsetSky = new THREE.Color(0xe99465);
+const daySun = new THREE.Color(0xffffff);
+const sunsetSun = new THREE.Color(0xffa45c);
+const currentSky = new THREE.Color();
+
+function updateDayNight(elapsed) {
+  const cycle = (elapsed / 240) % 1;
+  const angle = cycle * Math.PI * 2 - Math.PI / 2;
+
+  const sunHeight = Math.sin(angle);
+  const daylight = Math.max(0, sunHeight);
+  const night = 1 - daylight;
+
+  moon.visible = night > 0.15;
+  moonLight.intensity = night * 0.35;
+  moonLight.position.copy(moon.position);
+  moon.position.x = -Math.cos(angle) * 90;
+  moon.position.y = 75 + Math.sin(angle) * 20;
+  starMaterial.opacity =
+    night * (0.65 + Math.sin(elapsed * 2.5) * 0.2);
+  if (osmMap) osmMap.updateStreetLights(night);
+  if (osmMap) osmMap.updateStreetLights(1 - daylight);
+  const twilight = Math.max(0, 1 - Math.abs(daylight - 0.12) / 0.12);
+
+  sun.position.set(
+    Math.cos(angle) * 100,
+    sunHeight * 100,
+    25
+  );
+
+  sun.intensity = 0.12 + daylight * 1.9;
+  sun.color.copy(daySun).lerp(sunsetSun, twilight);
+
+  skyLight.intensity = 0.25 + daylight * 1.55;
+
+  currentSky.copy(nightSky).lerp(daySky, daylight);
+  currentSky.lerp(sunsetSky, twilight * 0.75);
+
+  scene.background.copy(currentSky);
+  scene.fog.color.copy(currentSky);
+}
+
 
 // Player model
 const player = new THREE.Group();
 scene.add(player);
+const multiplayer = createMultiplayer({ scene, player, statusText });
 
 const mat = (color, roughness = 0.85) => new THREE.MeshStandardMaterial({ color, roughness });
 const skin = mat(0xb97850);
@@ -112,60 +204,16 @@ const rightArm = createLimb(0.42, 1.78, shirt, true);
 const leftLeg = createLimb(-0.19, 1.05, pants, false);
 const rightLeg = createLimb(0.19, 1.05, pants, false);
 
-// Village buildings and simple house collision
-const obstacles = [];
 
-function createHouse(x, z, width = 7, height = 5, depth = 7) {
-  const house = new THREE.Group();
-  const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(width, height, depth),
-    mat(0xc49b70)
-  );
-  wall.position.y = height / 2;
-  wall.castShadow = true;
-  wall.receiveShadow = true;
-  house.add(wall);
 
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(width * 0.78, 2.5, 4),
-    mat(0x75452d)
-  );
-  roof.position.y = height + 1;
-  roof.rotation.y = Math.PI / 4;
-  roof.castShadow = true;
-  house.add(roof);
-
-  house.position.set(x, 0, z);
-  scene.add(house);
-  obstacles.push({ x, z, halfX: width / 2 + 0.65, halfZ: depth / 2 + 0.65 });
-}
-
-createHouse(-15, -15);
-createHouse(17, -20);
-createHouse(-20, 15);
-createHouse(20, 18, 9, 7, 8);
-createHouse(-35, -35, 9, 6, 9);
-createHouse(35, 35, 9, 6, 9);
-
-// Trees
-function createTree(x, z) {
-  const tree = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 2.4, 8), mat(0x684126));
-  trunk.position.y = 1.2;
-  trunk.castShadow = true;
-  tree.add(trunk);
-  const crown = new THREE.Mesh(new THREE.ConeGeometry(1.45, 3.8, 8), mat(0x236b35));
-  crown.position.y = 4;
-  crown.castShadow = true;
-  tree.add(crown);
-  tree.position.set(x, 0, z);
-  scene.add(tree);
-}
-for (let i = 0; i < 32; i++) {
-  const x = (Math.random() - 0.5) * 110;
-  const z = (Math.random() - 0.5) * 110;
-  if (Math.abs(x) > 9) createTree(x, z);
-}
+// Jamshedpur city map and building collision
+const obstacles = createJamshedpurMap(scene);
+const infrastructure = createInfrastructure(scene);
+createGreenery(scene);
+const traffic = createTraffic(scene);
+createOSMMap(scene)
+  .then(map => { osmMap = map; })
+  .catch(error => console.error('OSM MAP ERROR:', error));
 
 // Movement
 let moveX = 0;
@@ -178,11 +226,13 @@ const gravity = 18;
 const jumpPower = 7;
 let yaw = 0;
 let pitch = 0.24;
+let cameraYaw = 0;
+let cameraPitch = 0.24;
 const cameraDistance = 8;
 const clock = new THREE.Clock();
 
 const PLAYER_RADIUS = 0.42;
-const WORLD_LIMIT = 119;
+const WORLD_LIMIT = 470;
 
 function collides(x, z) {
   // Expand each building's footprint by the player's radius so the body
@@ -241,13 +291,34 @@ function animateCharacter(t) {
 }
 
 function updateCamera() {
-  const horizontal = Math.cos(pitch) * cameraDistance;
-  camera.position.set(
-    player.position.x + Math.sin(yaw) * horizontal,
-    player.position.y + 3 + Math.sin(pitch) * cameraDistance,
-    player.position.z + Math.cos(yaw) * horizontal
+  // Smoothly follow the player's camera direction
+  const angleDiff = Math.atan2(
+    Math.sin(yaw - cameraYaw),
+    Math.cos(yaw - cameraYaw)
   );
-  camera.lookAt(player.position.x, player.position.y + 1.3, player.position.z);
+  cameraYaw += angleDiff * 0.18;
+  cameraPitch += (pitch - cameraPitch) * 0.18;
+
+  const distance = 10;
+  const targetY = player.position.y + 1.3;
+
+  // Full 360-degree horizontal rotation + vertical camera look
+  const horizontalDistance = Math.cos(cameraPitch) * distance;
+  const offsetX = Math.sin(cameraYaw) * horizontalDistance;
+  const offsetY = Math.sin(cameraPitch) * distance;
+  const offsetZ = Math.cos(cameraYaw) * horizontalDistance;
+
+  camera.position.set(
+    player.position.x + offsetX,
+    targetY + offsetY,
+    player.position.z + offsetZ
+  );
+
+  camera.lookAt(
+    player.position.x,
+    targetY,
+    player.position.z
+  );
 }
 
 // Camera drag: the joystick and jump button are separate UI layers,
@@ -273,8 +344,8 @@ renderer.domElement.addEventListener('pointermove', event => {
   event.preventDefault();
   const dx = event.clientX - lastX;
   const dy = event.clientY - lastY;
-  yaw -= dx * 0.005;
-  pitch = THREE.MathUtils.clamp(pitch + dy * 0.0035, -0.12, 0.85);
+  yaw -= dx * 0.0035;
+  pitch = THREE.MathUtils.clamp(pitch + dy * 0.0025, -0.35, 1.0);
   lastX = event.clientX;
   lastY = event.clientY;
 }, { passive: false });
@@ -385,9 +456,9 @@ window.addEventListener('blur', () => {
 let miniRenderer = null;
 let miniCamera = null;
 if (miniMapElement) {
-  miniCamera = new THREE.OrthographicCamera(-38, 38, 38, -38, 0.1, 200);
+  miniCamera = new THREE.OrthographicCamera(-130, 130, 130, -130, 0.1, 200);
   miniCamera.up.set(0, 0, -1);
-  miniCamera.position.set(0, 90, 0);
+  miniCamera.position.set(0, 180, 0);
   miniCamera.lookAt(0, 0, 0);
   miniRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
   miniRenderer.setPixelRatio(1);
@@ -431,19 +502,72 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   });
 }
 
+// Mobile FPS monitor
+let fpsFrames = 0;
+let fpsLastTime = performance.now();
+let currentFPS = 0;
+
+const fpsDisplay = document.createElement('div');
+fpsDisplay.style.cssText =
+  'position:fixed;top:8px;left:8px;z-index:9999;' +
+  'padding:6px 10px;background:#000b;color:#00ff88;' +
+  'font:bold 14px monospace;border-radius:6px;';
+fpsDisplay.textContent = 'FPS: --';
+document.body.appendChild(fpsDisplay);
+
 // Main loop
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
   const elapsed = clock.elapsedTime;
+  updateDayNight(elapsed);
   updateKeyboardInput();
   updatePlayer(dt);
+  multiplayer.update(dt);
+  traffic.update(dt);
+  infrastructure.update(elapsed);
   animateCharacter(elapsed);
   updateCamera();
   renderer.render(scene, camera);
 
+  fpsFrames++;
+  const fpsNow = performance.now();
+  if (fpsNow - fpsLastTime >= 1000) {
+    currentFPS = Math.round(fpsFrames * 1000 / (fpsNow - fpsLastTime));
+    fpsDisplay.textContent = 'FPS: ' + currentFPS;
+    fpsFrames = 0;
+    fpsLastTime = fpsNow;
+  }
+
+  if (debugPanel) {
+    debugPanel.textContent = 'RWBZ LIVE SCENE INFO\\n' +
+      'Objects: ' + scene.children.length + '\\n' +
+      'Camera: ' + camera.position.toArray().join(', ') + '\\n' +
+      'Player: ' + player.position.toArray().join(', ') + '\\n' +
+      'Canvas: ' + renderer.domElement.width + ' x ' +
+      renderer.domElement.height;
+  }
+
+
+  if (!window.__rwbzDiagnosticDone) {
+    window.__rwbzDiagnosticDone = true;
+    const gl = renderer.getContext();
+    const info = {
+      canvasWidth: renderer.domElement.width,
+      canvasHeight: renderer.domElement.height,
+      drawingBufferWidth: gl.drawingBufferWidth,
+      drawingBufferHeight: gl.drawingBufferHeight,
+      sceneObjects: scene.children.length,
+      cameraPosition: camera.position.toArray(),
+      playerPosition: player.position.toArray(),
+      glError: gl.getError()
+    };
+    console.log('RWBZ LIVE DIAGNOSTIC:', info);
+    if (statusText) statusText.textContent = '3D: ' + JSON.stringify(info);
+  }
+
   if (miniRenderer && miniCamera) {
-    miniCamera.position.set(player.position.x, 90, player.position.z);
+    miniCamera.position.set(player.position.x, 180, player.position.z);
     miniCamera.lookAt(player.position.x, 0, player.position.z);
     miniRenderer.render(scene, miniCamera);
   }
@@ -453,3 +577,17 @@ animate();
 
 if (statusText) statusText.textContent = 'V3.1 Ready - Move, rotate camera and jump';
 console.log('RealWorldBattleZone V3.1 loaded');
+const diagnostic = {
+  sceneObjects: scene.children.length,
+  playerPosition: player.position.toArray(),
+  cameraPosition: camera.position.toArray(),
+  groundExists: scene.children.some(
+    obj => obj.isMesh && obj.geometry.type === 'PlaneGeometry'
+  )
+};
+
+console.log('3D DIAGNOSTIC:', diagnostic);
+
+if (statusText) {
+  statusText.textContent = '3D TEST: ' + JSON.stringify(diagnostic);
+}
