@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="90" fill="#101820"/>
+  <path d="M256 58 425 151v190L256 454 87 341V151Z" fill="#267a42" stroke="#fff" stroke-width="13"/>
+  <path d="m174 167 164 0 28 165-110-56-110 56Z" fill="#e6e6e6"/>
+  <text x="256" y="397" font-size="53" font-family="Arial,sans-serif" font-weight="bold" fill="#fff" text-anchor="middle">RWBZ</text>
+</svg>
