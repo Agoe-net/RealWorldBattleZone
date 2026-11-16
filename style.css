@@ -102,6 +102,8 @@ html, body {
   display: grid;
   place-items: center;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 #stick {
   width: 46px;
@@ -127,6 +129,9 @@ html, body {
   font-weight: 800;
   font-size: 14px;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
 }
 #jumpBtn:active { background: #0c4388; transform: scale(.96); }
 #installBtn {
@@ -148,4 +153,13 @@ html, body {
   #stick { width: 43px; height: 43px; }
   #jumpBtn { width: 66px; height: 66px; }
   .game-title { font-size: 11px; }
+}
+
+/* Keep touch controls responsive above the WebGL canvas on Android. */
+#joystick, #jumpBtn, #installBtn {
+  -webkit-user-select: none;
+  user-select: none;
+}
+#joystick, #jumpBtn {
+  -webkit-touch-callout: none;
 }

@@ -181,8 +181,18 @@ let pitch = 0.24;
 const cameraDistance = 8;
 const clock = new THREE.Clock();
 
+const PLAYER_RADIUS = 0.42;
+const WORLD_LIMIT = 119;
+
 function collides(x, z) {
-  return obstacles.some(o => Math.abs(x - o.x) < o.halfX && Math.abs(z - o.z) < o.halfZ);
+  // Expand each building's footprint by the player's radius so the body
+  // cannot clip through walls at the corners.
+  return obstacles.some(o =>
+    x > o.x - o.halfX - PLAYER_RADIUS &&
+    x < o.x + o.halfX + PLAYER_RADIUS &&
+    z > o.z - o.halfZ - PLAYER_RADIUS &&
+    z < o.z + o.halfZ + PLAYER_RADIUS
+  );
 }
 
 function updatePlayer(dt) {
@@ -194,11 +204,20 @@ function updatePlayer(dt) {
 
   moving = direction.lengthSq() > 0.01;
   if (moving) {
-    direction.normalize();
-    const nx = player.position.x + direction.x * speed * dt;
-    const nz = player.position.z + direction.z * speed * dt;
-    if (!collides(nx, player.position.z)) player.position.x = nx;
-    if (!collides(player.position.x, nz)) player.position.z = nz;
+    direction.clampLength(0, 1);
+    const distance = speed * dt;
+    // Small substeps prevent fast movement from tunnelling through walls.
+    const steps = Math.max(1, Math.ceil(distance / 0.2));
+    const stepX = direction.x * distance / steps;
+    const stepZ = direction.z * distance / steps;
+
+    for (let i = 0; i < steps; i++) {
+      const nextX = THREE.MathUtils.clamp(player.position.x + stepX, -WORLD_LIMIT, WORLD_LIMIT);
+      const nextZ = THREE.MathUtils.clamp(player.position.z + stepZ, -WORLD_LIMIT, WORLD_LIMIT);
+
+      if (!collides(nextX, player.position.z)) player.position.x = nextX;
+      if (!collides(player.position.x, nextZ)) player.position.z = nextZ;
+    }
     player.rotation.y = Math.atan2(direction.x, direction.z);
   }
 
@@ -231,32 +250,48 @@ function updateCamera() {
   camera.lookAt(player.position.x, player.position.y + 1.3, player.position.z);
 }
 
-// Camera drag: do not start camera drag when touching controls
+// Camera drag: the joystick and jump button are separate UI layers,
+// so camera input only starts on the 3D canvas.
 let dragging = false;
+let cameraPointerId = null;
 let lastX = 0;
 let lastY = 0;
+
 renderer.domElement.addEventListener('pointerdown', event => {
+  if (event.button !== undefined && event.button !== 0) return;
+  if (cameraPointerId !== null) return;
+  event.preventDefault();
   dragging = true;
+  cameraPointerId = event.pointerId;
   lastX = event.clientX;
   lastY = event.clientY;
-  renderer.domElement.setPointerCapture(event.pointerId);
-});
+  try { renderer.domElement.setPointerCapture(event.pointerId); } catch (_) {}
+}, { passive: false });
+
 renderer.domElement.addEventListener('pointermove', event => {
-  if (!dragging) return;
+  if (!dragging || event.pointerId !== cameraPointerId) return;
+  event.preventDefault();
   const dx = event.clientX - lastX;
   const dy = event.clientY - lastY;
-  yaw -= dx * 0.006;
-  pitch = THREE.MathUtils.clamp(pitch + dy * 0.004, -0.15, 0.9);
+  yaw -= dx * 0.005;
+  pitch = THREE.MathUtils.clamp(pitch + dy * 0.0035, -0.12, 0.85);
   lastX = event.clientX;
   lastY = event.clientY;
-});
-const stopDrag = () => { dragging = false; };
-renderer.domElement.addEventListener('pointerup', stopDrag);
-renderer.domElement.addEventListener('pointercancel', stopDrag);
+}, { passive: false });
 
-// Joystick
+function stopCameraDrag(event) {
+  if (event && cameraPointerId !== null && event.pointerId !== cameraPointerId) return;
+  dragging = false;
+  cameraPointerId = null;
+}
+renderer.domElement.addEventListener('pointerup', stopCameraDrag);
+renderer.domElement.addEventListener('pointercancel', stopCameraDrag);
+renderer.domElement.addEventListener('lostpointercapture', stopCameraDrag);
+
+// Mobile movement joystick
 if (joystick) {
   const radius = 43;
+  const deadZone = 0.08;
   let activePointer = null;
 
   function updateStick(event) {
@@ -268,12 +303,21 @@ if (joystick) {
       dx = dx / length * radius;
       dy = dy / length * radius;
     }
-    moveX = dx / radius;
-    moveY = -dy / radius;
+    let x = dx / radius;
+    let y = -dy / radius;
+    if (Math.hypot(x, y) < deadZone) {
+      x = 0;
+      y = 0;
+      dx = 0;
+      dy = 0;
+    }
+    moveX = x;
+    moveY = y;
     if (stick) stick.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
-  function resetStick() {
+  function resetStick(event) {
+    if (event && activePointer !== null && event.pointerId !== activePointer) return;
     activePointer = null;
     moveX = 0;
     moveY = 0;
@@ -281,28 +325,61 @@ if (joystick) {
   }
 
   joystick.addEventListener('pointerdown', event => {
+    if (activePointer !== null) return;
     event.preventDefault();
     activePointer = event.pointerId;
-    joystick.setPointerCapture(event.pointerId);
+    try { joystick.setPointerCapture(event.pointerId); } catch (_) {}
     updateStick(event);
-  });
+  }, { passive: false });
   joystick.addEventListener('pointermove', event => {
-    if (event.pointerId === activePointer) updateStick(event);
-  });
+    if (event.pointerId === activePointer) {
+      event.preventDefault();
+      updateStick(event);
+    }
+  }, { passive: false });
   joystick.addEventListener('pointerup', resetStick);
   joystick.addEventListener('pointercancel', resetStick);
+  joystick.addEventListener('lostpointercapture', resetStick);
 }
 
 // Jump
+function jump() {
+  if (grounded) {
+    verticalSpeed = jumpPower;
+    grounded = false;
+  }
+}
 if (jumpButton) {
   jumpButton.addEventListener('pointerdown', event => {
     event.preventDefault();
-    if (grounded) {
-      verticalSpeed = jumpPower;
-      grounded = false;
-    }
-  });
+    jump();
+  }, { passive: false });
 }
+
+// Keyboard controls are useful when testing on a computer; mobile remains
+// fully touch-controlled.
+const keys = new Set();
+window.addEventListener('keydown', event => {
+  keys.add(event.code);
+  if (event.code === 'Space') jump();
+});
+window.addEventListener('keyup', event => keys.delete(event.code));
+function updateKeyboardInput() {
+  const keyX = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) -
+    (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+  const keyY = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) -
+    (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+  if (keyX || keyY) {
+    moveX = keyX;
+    moveY = keyY;
+  }
+}
+window.addEventListener('blur', () => {
+  keys.clear();
+  moveX = 0;
+  moveY = 0;
+  stopCameraDrag();
+});
 
 // Mini map renderer (separate small viewport)
 let miniRenderer = null;
@@ -359,6 +436,7 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
   const elapsed = clock.elapsedTime;
+  updateKeyboardInput();
   updatePlayer(dt);
   animateCharacter(elapsed);
   updateCamera();
