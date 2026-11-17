@@ -172,50 +172,8 @@ export async function createOSMMap(scene) {
     mesh.receiveShadow = true;
     scene.add(mesh);
 
-    // Night windows on all four building sides
-    const windowGeo = new THREE.PlaneGeometry(0.32, 0.28);
-    const windowGroup = new THREE.Group();
-
-    const minX = Math.min(...points.map(p => p.x));
-    const maxX = Math.max(...points.map(p => p.x));
-    const minZ = Math.min(...points.map(p => p.z));
-    const maxZ = Math.max(...points.map(p => p.z));
-
-    const countX = Math.min(5, Math.max(1, Math.floor((maxX - minX) / 2.5)));
-    const countZ = Math.min(5, Math.max(1, Math.floor((maxZ - minZ) / 2.5)));
-    const floors = Math.min(5, Math.max(1, Math.floor(height / 2)));
-
-    function addWindow(x, y, z, rotationY = 0) {
-      const material = new THREE.MeshBasicMaterial({
-        color: 0xffd98a,
-        transparent: true,
-        opacity: 0
-      });
-
-      const windowMesh = new THREE.Mesh(windowGeo, material);
-      windowMesh.position.set(x, y, z);
-      windowMesh.rotation.y = rotationY;
-      buildingWindowMaterials.push(material);
-      windowGroup.add(windowMesh);
-    }
-
-    for (let floor = 0; floor < floors; floor++) {
-      const y = 0.16 + (floor + 0.65) * height / floors;
-
-      for (let i = 0; i < countX; i++) {
-        const x = minX + (i + 0.5) * (maxX - minX) / countX;
-        addWindow(x, y, minZ - 0.015);
-        addWindow(x, y, maxZ + 0.015, Math.PI);
-      }
-
-      for (let i = 0; i < countZ; i++) {
-        const z = minZ + (i + 0.5) * (maxZ - minZ) / countZ;
-        addWindow(minX - 0.015, y, z, -Math.PI / 2);
-        addWindow(maxX + 0.015, y, z, Math.PI / 2);
-      }
-    }
-
-    scene.add(windowGroup);
+    // Mobile performance preset: skip hundreds of separate window meshes.
+    // Building silhouettes and street lighting remain enabled.
 
     buildings++;
   }

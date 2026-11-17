@@ -18,33 +18,10 @@ const stick = document.querySelector('#stick');
 const jumpButton = document.querySelector('#jumpBtn');
 const installButton = document.querySelector('#installBtn');
 
-// VISIBLE JAVASCRIPT TEST
-if (statusText) {
-  statusText.textContent = 'GAME JAVASCRIPT STARTED';
-  statusText.style.cssText =
-    'display:block!important;position:fixed;top:80px;left:10px;z-index:99999;color:white;background:#b00020;padding:12px;font-size:16px;';
-}
-
-
 if (!game) throw new Error('Missing #game element in index.html');
 
-// RWBZ DEBUG PANEL
-const debugPanel = document.createElement('div');
-debugPanel.id = 'rwbz-debug';
-debugPanel.textContent = '3D DEBUG: Starting...';
-debugPanel.style.cssText =
-  'position:fixed;top:420px;left:10px;z-index:999999;' +
-  'background:#111;color:#00ff66;padding:10px;' +
-  'font-size:12px;max-width:95%;white-space:pre-wrap;';
-document.body.appendChild(debugPanel);
-
-window.addEventListener('error', e => {
-  debugPanel.textContent = 'JAVASCRIPT ERROR: ' + e.message;
-});
-window.addEventListener('unhandledrejection', e => {
-  debugPanel.textContent = 'PROMISE ERROR: ' + e.reason;
-});
-
+window.addEventListener('error', e => console.error('RWBZ ERROR:', e.message));
+window.addEventListener('unhandledrejection', e => console.error('RWBZ PROMISE ERROR:', e.reason));
 
 let renderer;
 try {
@@ -137,8 +114,7 @@ function updateDayNight(elapsed) {
   moon.position.y = 75 + Math.sin(angle) * 20;
   starMaterial.opacity =
     night * (0.65 + Math.sin(elapsed * 2.5) * 0.2);
-  if (osmMap) osmMap.updateStreetLights(night);
-  if (osmMap) osmMap.updateStreetLights(1 - daylight);
+  // Street-light materials are updated on a timer in the main loop.
   const twilight = Math.max(0, 1 - Math.abs(daylight - 0.12) / 0.12);
 
   sun.position.set(
@@ -175,8 +151,8 @@ const hair = mat(0x21170f);
 function addPart(parent, geometry, material, x, y, z) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
   parent.add(mesh);
   return mesh;
 }
@@ -615,6 +591,8 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 let fpsFrames = 0;
 let fpsLastTime = performance.now();
 let currentFPS = 0;
+let lastLightingUpdate = 0;
+let lastMiniMapUpdate = 0;
 
 const fpsDisplay = document.createElement('div');
 fpsDisplay.style.cssText =
@@ -630,6 +608,12 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const elapsed = clock.elapsedTime;
   updateDayNight(elapsed);
+  if (osmMap && elapsed - lastLightingUpdate >= 0.25) {
+    const cycle = (elapsed / 240) % 1;
+    const daylight = Math.max(0, Math.sin(cycle * Math.PI * 2 - Math.PI / 2));
+    osmMap.updateStreetLights(1 - daylight);
+    lastLightingUpdate = elapsed;
+  }
   updateKeyboardInput();
   updatePlayer(dt);
   multiplayer.update(dt);
@@ -648,55 +632,15 @@ function animate() {
     fpsLastTime = fpsNow;
   }
 
-  if (debugPanel) {
-    debugPanel.textContent = 'RWBZ LIVE SCENE INFO\\n' +
-      'Objects: ' + scene.children.length + '\\n' +
-      'Camera: ' + camera.position.toArray().join(', ') + '\\n' +
-      'Player: ' + player.position.toArray().join(', ') + '\\n' +
-      'Canvas: ' + renderer.domElement.width + ' x ' +
-      renderer.domElement.height;
-  }
-
-
-  if (!window.__rwbzDiagnosticDone) {
-    window.__rwbzDiagnosticDone = true;
-    const gl = renderer.getContext();
-    const info = {
-      canvasWidth: renderer.domElement.width,
-      canvasHeight: renderer.domElement.height,
-      drawingBufferWidth: gl.drawingBufferWidth,
-      drawingBufferHeight: gl.drawingBufferHeight,
-      sceneObjects: scene.children.length,
-      cameraPosition: camera.position.toArray(),
-      playerPosition: player.position.toArray(),
-      glError: gl.getError()
-    };
-    console.log('RWBZ LIVE DIAGNOSTIC:', info);
-    if (statusText) statusText.textContent = '3D: ' + JSON.stringify(info);
-  }
-
-  if (miniRenderer && miniCamera) {
+  if (miniRenderer && miniCamera && elapsed - lastMiniMapUpdate >= 0.2) {
     miniCamera.position.set(player.position.x, 180, player.position.z);
     miniCamera.lookAt(player.position.x, 0, player.position.z);
     miniRenderer.render(scene, miniCamera);
+    lastMiniMapUpdate = elapsed;
   }
 }
 updateCamera();
 animate();
 
-if (statusText) statusText.textContent = 'V3.1 Ready - Move, rotate camera and jump';
-console.log('RealWorldBattleZone V3.1 loaded');
-const diagnostic = {
-  sceneObjects: scene.children.length,
-  playerPosition: player.position.toArray(),
-  cameraPosition: camera.position.toArray(),
-  groundExists: scene.children.some(
-    obj => obj.isMesh && obj.geometry.type === 'PlaneGeometry'
-  )
-};
-
-console.log('3D DIAGNOSTIC:', diagnostic);
-
-if (statusText) {
-  statusText.textContent = '3D TEST: ' + JSON.stringify(diagnostic);
-}
+if (statusText) statusText.textContent = 'Ready - Move, rotate camera and jump';
+console.log('RealWorldBattleZone optimized build loaded');
