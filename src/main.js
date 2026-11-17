@@ -31,7 +31,12 @@ try {
   throw error;
 }
 
-renderer.setPixelRatio(1.0);
+
+const cpuCores = navigator.hardwareConcurrency || 8;
+const deviceMemory = navigator.deviceMemory || 8;
+const mobileLowEnd = cpuCores <= 4 || deviceMemory <= 4;
+renderer.setPixelRatio(mobileLowEnd ? 0.7 : 0.9);
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = false;
 renderer.domElement.style.touchAction = 'none';
@@ -587,20 +592,8 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   });
 }
 
-// Mobile FPS monitor
-let fpsFrames = 0;
-let fpsLastTime = performance.now();
-let currentFPS = 0;
 let lastLightingUpdate = 0;
 let lastMiniMapUpdate = 0;
-
-const fpsDisplay = document.createElement('div');
-fpsDisplay.style.cssText =
-  'position:fixed;top:8px;left:8px;z-index:9999;' +
-  'padding:6px 10px;background:#000b;color:#00ff88;' +
-  'font:bold 14px monospace;border-radius:6px;';
-fpsDisplay.textContent = 'FPS: --';
-document.body.appendChild(fpsDisplay);
 
 // Main loop
 function animate() {
@@ -623,16 +616,7 @@ function animate() {
   updateCamera();
   renderer.render(scene, camera);
 
-  fpsFrames++;
-  const fpsNow = performance.now();
-  if (fpsNow - fpsLastTime >= 1000) {
-    currentFPS = Math.round(fpsFrames * 1000 / (fpsNow - fpsLastTime));
-    fpsDisplay.textContent = 'FPS: ' + currentFPS;
-    fpsFrames = 0;
-    fpsLastTime = fpsNow;
-  }
-
-  if (miniRenderer && miniCamera && elapsed - lastMiniMapUpdate >= 0.2) {
+  if (miniRenderer && miniCamera && elapsed - lastMiniMapUpdate >= 0.5) {
     miniCamera.position.set(player.position.x, 180, player.position.z);
     miniCamera.lookAt(player.position.x, 0, player.position.z);
     miniRenderer.render(scene, miniCamera);
