@@ -6,6 +6,7 @@ import { createOSMMap } from './world/osm-map.js';
 import { createGreenery } from './world/greenery.js';
 import { createInfrastructure } from './world/infrastructure.js';
 import { createTraffic } from './vehicles/traffic.js';
+import { createEnterableTestHouse } from './world/enterable-building.js';
 
 // REALWORLD BATTLE ZONE - WEB/PWA PROTOTYPE
 
@@ -201,13 +202,47 @@ function createLimb(x, y, material, isArm) {
 
 const leftArm = createLimb(-0.42, 1.78, shirt, true);
 const rightArm = createLimb(0.42, 1.78, shirt, true);
-const leftLeg = createLimb(-0.19, 1.05, pants, false);
-const rightLeg = createLimb(0.19, 1.05, pants, false);
+function createLeg(x, y) {
+  const hip = new THREE.Group();
+  hip.position.set(x, y, 0);
+  player.add(hip);
+
+  // Upper leg
+  addPart(
+    hip,
+    new THREE.CylinderGeometry(0.14, 0.12, 0.40, 14),
+    pants, 0, -0.20, 0
+  );
+
+  // Knee pivot and lower leg
+  const knee = new THREE.Group();
+  knee.position.set(0, -0.40, 0);
+  hip.add(knee);
+
+  addPart(
+    knee,
+    new THREE.CylinderGeometry(0.12, 0.105, 0.38, 14),
+    pants, 0, -0.19, 0
+  );
+
+  // Shoe
+  addPart(
+    knee,
+    new THREE.BoxGeometry(0.24, 0.14, 0.38),
+    shoes, 0, -0.40, -0.08
+  );
+
+  return { hip, knee };
+}
+
+const leftLeg = createLeg(-0.19, 1.05);
+const rightLeg = createLeg(0.19, 1.05);
 
 
 
 // Jamshedpur city map and building collision
 const obstacles = createJamshedpurMap(scene);
+const testHouse = createEnterableTestHouse(scene);
 const infrastructure = createInfrastructure(scene);
 createGreenery(scene);
 const traffic = createTraffic(scene);
@@ -221,7 +256,9 @@ let moveY = 0;
 let verticalSpeed = 0;
 let grounded = true;
 let moving = false;
-const speed = 8;
+let speed = 8;
+let sprinting = false;
+let aiming = false;
 const gravity = 18;
 const jumpPower = 7;
 let yaw = 0;
@@ -235,14 +272,34 @@ const PLAYER_RADIUS = 0.42;
 const WORLD_LIMIT = 470;
 
 function collides(x, z) {
-  // Expand each building's footprint by the player's radius so the body
-  // cannot clip through walls at the corners.
-  return obstacles.some(o =>
+  const cityCollision = obstacles.some(o =>
     x > o.x - o.halfX - PLAYER_RADIUS &&
     x < o.x + o.halfX + PLAYER_RADIUS &&
     z > o.z - o.halfZ - PLAYER_RADIUS &&
     z < o.z + o.halfZ + PLAYER_RADIUS
   );
+
+  // Test house walls: ground-floor doorway remains open.
+  const feetY = player.position.y;
+  const intersectsHouseWalls = feetY < 3.2 && feetY + 2.5 > 0;
+
+  if (!intersectsHouseWalls) return cityCollision;
+
+  const r = PLAYER_RADIUS;
+  const insideX = x > 27 - r && x < 43 + r;
+  const insideZ = z > 27 - r && z < 43 + r;
+
+  const backWall = insideX && Math.abs(z - 27) < 0.35 + r;
+  const leftWall = insideZ && Math.abs(x - 27) < 0.35 + r;
+  const rightWall = insideZ && Math.abs(x - 43) < 0.35 + r;
+
+  // Front wall has a doorway from x=33.8 to x=36.2.
+  const frontWallLine = Math.abs(z - 43) < 0.35 + r;
+  const frontLeft = x < 33.8 + r;
+  const frontRight = x > 36.2 - r;
+  const frontWall = insideX && frontWallLine && (frontLeft || frontRight);
+
+  return cityCollision || backWall || leftWall || rightWall || frontWall;
 }
 
 function updatePlayer(dt) {
@@ -282,12 +339,27 @@ function updatePlayer(dt) {
   }
 }
 
+let gaitBlend = 0;
+
 function animateCharacter(t) {
-  const swing = moving && grounded ? Math.sin(t * 10) * 0.62 : 0;
+  const target = moving && grounded ? 1 : 0;
+  gaitBlend += (target - gaitBlend) * 0.14;
+
+  const phase = t * 8;
+  const swing = Math.sin(phase) * 0.48 * gaitBlend;
+
   leftArm.rotation.x = swing;
   rightArm.rotation.x = -swing;
-  leftLeg.rotation.x = -swing;
-  rightLeg.rotation.x = swing;
+
+  leftLeg.hip.rotation.x = swing;
+  rightLeg.hip.rotation.x = -swing;
+
+  // Natural knee bending during forward swing
+  leftLeg.knee.rotation.x =
+    Math.max(0, Math.sin(phase)) * 0.72 * gaitBlend;
+
+  rightLeg.knee.rotation.x =
+    Math.max(0, Math.sin(phase + Math.PI)) * 0.72 * gaitBlend;
 }
 
 function updateCamera() {
@@ -299,7 +371,7 @@ function updateCamera() {
   cameraYaw += angleDiff * 0.18;
   cameraPitch += (pitch - cameraPitch) * 0.18;
 
-  const distance = 10;
+  const distance = aiming ? 6 : 10;
   const targetY = player.position.y + 1.3;
 
   // Full 360-degree horizontal rotation + vertical camera look
@@ -427,6 +499,40 @@ if (jumpButton) {
   }, { passive: false });
 }
 
+// Sprint: hold the button to run faster.
+const sprintButton = document.getElementById('sprintBtn');
+
+if (sprintButton) {
+  sprintButton.addEventListener('pointerdown', event => {
+    event.preventDefault();
+    sprinting = true;
+    speed = 12;
+    sprintButton.classList.add('active');
+  });
+
+  const stopSprint = () => {
+    sprinting = false;
+    speed = 8;
+    sprintButton.classList.remove('active');
+  };
+
+  sprintButton.addEventListener('pointerup', stopSprint);
+  sprintButton.addEventListener('pointercancel', stopSprint);
+  sprintButton.addEventListener('lostpointercapture', stopSprint);
+}
+
+// Aim: toggle a closer third-person camera.
+const aimButton = document.getElementById('aimBtn');
+
+if (aimButton) {
+  aimButton.addEventListener('click', () => {
+    aiming = !aiming;
+    aimButton.classList.toggle('active', aiming);
+    aimButton.textContent = aiming ? '◎ AIM ON' : '◎ AIM';
+  });
+}
+
+
 // Keyboard controls are useful when testing on a computer; mobile remains
 // fully touch-controlled.
 const keys = new Set();
@@ -449,6 +555,9 @@ window.addEventListener('blur', () => {
   keys.clear();
   moveX = 0;
   moveY = 0;
+  sprinting = false;
+  speed = 8;
+  if (sprintButton) sprintButton.classList.remove('active');
   stopCameraDrag();
 });
 

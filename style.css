@@ -332,3 +332,104 @@ html, body {
     font-size: 8px;
   }
 }
+
+/* ===== MOBILE BATTLE HUD ===== */
+#minimap {
+  left: max(10px, env(safe-area-inset-left));
+  right: auto;
+  top: max(10px, env(safe-area-inset-top));
+  width: 150px;
+  height: 125px;
+  border-radius: 5px;
+}
+
+#hud {
+  top: max(142px, calc(env(safe-area-inset-top) + 132px));
+}
+
+#leftActionHUD,
+#rightActionHUD {
+  position: absolute;
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  pointer-events: none;
+}
+
+#leftActionHUD {
+  left: max(10px, env(safe-area-inset-left));
+  top: 155px;
+}
+
+#rightActionHUD {
+  right: max(12px, env(safe-area-inset-right));
+  bottom: 190px;
+}
+
+.hud-action {
+  min-width: 65px;
+  min-height: 38px;
+  padding: 6px 9px;
+  border: 1px solid #ffffffbb;
+  border-radius: 22px;
+  background: #17212cbb;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  text-shadow: 1px 1px 2px black;
+  touch-action: none;
+  pointer-events: auto;
+  box-shadow: 0 2px 6px #0008;
+}
+
+.hud-action:active,
+.hud-action.active {
+  background: #b87918ee;
+  border-color: #ffe08a;
+  transform: scale(.95);
+}
+
+#sprintBtn, #aimBtn {
+  min-width: 76px;
+  min-height: 48px;
+}
+
+#weaponHUD {
+  bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+@media (orientation: landscape) {
+  #minimap {
+    width: 150px;
+    height: 125px;
+  }
+
+  #leftActionHUD {
+    top: 145px;
+  }
+
+  #rightActionHUD {
+    bottom: 165px;
+  }
+}
+
+@media (max-height: 500px) {
+  #leftActionHUD, #rightActionHUD {
+    gap: 4px;
+  }
+
+  .hud-action {
+    min-height: 30px;
+    padding: 4px 7px;
+    font-size: 9px;
+  }
+
+  #rightActionHUD {
+    bottom: 125px;
+  }
+
+  #leftActionHUD {
+    top: 135px;
+  }
+}

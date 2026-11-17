@@ -13,22 +13,10 @@ export function createMultiplayer({ scene, player, statusText }) {
   let joined = false;
 
   const weapons = {
-    pistol: {
-      name: 'Pistol',
-      ammo: 15
-    },
-    rifle: {
-      name: 'Assault Rifle',
-      ammo: 30
-    },
-    shotgun: {
-      name: 'Shotgun',
-      ammo: 8
-    },
-    sniper: {
-      name: 'Sniper Rifle',
-      ammo: 5
-    }
+    pistol: { name: 'Pistol', ammo: 15, maxAmmo: 15 },
+    rifle: { name: 'Assault Rifle', ammo: 30, maxAmmo: 30 },
+    shotgun: { name: 'Shotgun', ammo: 8, maxAmmo: 8 },
+    sniper: { name: 'Sniper Rifle', ammo: 5, maxAmmo: 5 }
   };
 
   const aliveElement = document.getElementById('aliveCount');
@@ -40,11 +28,43 @@ export function createMultiplayer({ scene, player, statusText }) {
   const weaponButtons = document.querySelectorAll('.weapon-slot');
   const fireButton = document.getElementById('fireBtn');
   const crouchButton = document.getElementById('crouchBtn');
+  const reloadButton = document.getElementById('reloadBtn');
+  const medkitButton = document.getElementById('medkitBtn');
+  let medkitsRemaining = 3;
+  let reloading = false;
 
   function updateAmmo() {
     if (ammoElement) {
       ammoElement.textContent = weapons[selectedWeapon].ammo;
     }
+  }
+
+  function updateMedkitButton() {
+    if (medkitButton) {
+      medkitButton.textContent = `✚ MEDKIT ${medkitsRemaining}`;
+    }
+  }
+
+  function reloadWeapon() {
+    if (reloading) return;
+    const gun = weapons[selectedWeapon];
+
+    if (gun.ammo >= gun.maxAmmo) {
+      statusText.textContent = 'Magazine already full';
+      return;
+    }
+
+    reloading = true;
+    if (reloadButton) reloadButton.classList.add('active');
+    statusText.textContent = `Reloading ${gun.name}...`;
+
+    window.setTimeout(() => {
+      gun.ammo = gun.maxAmmo;
+      reloading = false;
+      if (reloadButton) reloadButton.classList.remove('active');
+      updateAmmo();
+      statusText.textContent = `${gun.name} reloaded`;
+    }, 1200);
   }
 
   function updateHealth(hp) {
@@ -165,8 +185,13 @@ export function createMultiplayer({ scene, player, statusText }) {
       return;
     }
 
+    if (reloading) {
+      statusText.textContent = 'Please wait for reload';
+      return;
+    }
+
     if (weapons[selectedWeapon].ammo <= 0) {
-      statusText.textContent = 'No ammo! Reload system coming soon.';
+      statusText.textContent = 'No ammo! Tap RELOAD.';
       return;
     }
 
@@ -210,6 +235,10 @@ export function createMultiplayer({ scene, player, statusText }) {
     if (!data || !Array.isArray(data.players)) return;
 
     joined = true;
+    medkitsRemaining = Number(
+      data.players.find(p => p.id === socket.id)?.medkits ?? 3
+    );
+    updateMedkitButton();
 
     data.players.forEach(addPlayer);
 
@@ -249,6 +278,28 @@ export function createMultiplayer({ scene, player, statusText }) {
       statusText.textContent = `You were hit! HP: ${data.hp}`;
     } else {
       statusText.textContent = `Enemy hit! HP: ${data.hp}`;
+    }
+  });
+
+  socket.on('playerHealed', data => {
+    if (!data || data.id !== socket.id) return;
+
+    updateHealth(data.hp);
+    medkitsRemaining = Number(data.medkits ?? medkitsRemaining);
+    updateMedkitButton();
+    statusText.textContent = `Medkit used! HP: ${data.hp}`;
+  });
+
+  socket.on('medkitResult', data => {
+    if (!data) return;
+
+    if (Number.isFinite(data.medkits)) {
+      medkitsRemaining = data.medkits;
+      updateMedkitButton();
+    }
+
+    if (!data.success && data.reason) {
+      statusText.textContent = data.reason;
     }
   });
 
@@ -311,6 +362,20 @@ export function createMultiplayer({ scene, player, statusText }) {
     });
   }
 
+  if (reloadButton) {
+    reloadButton.addEventListener('click', reloadWeapon);
+  }
+
+  if (medkitButton) {
+    medkitButton.addEventListener('click', () => {
+      if (!socket.connected || !joined) {
+        statusText.textContent = 'Not connected to server';
+        return;
+      }
+      socket.emit('useMedkit');
+    });
+  }
+
   // Crouch button: visual prototype only
   let crouching = false;
 
@@ -327,6 +392,7 @@ export function createMultiplayer({ scene, player, statusText }) {
   }
 
   selectWeapon('pistol');
+  updateMedkitButton();
 
   return {
     update(dt) {
