@@ -433,3 +433,270 @@ html, body {
     top: 135px;
   }
 }
+
+/* ===== REALWORLDBATTLEZONE FREE FIRE INSPIRED HUD ===== */
+
+#minimap {
+  left: max(10px, env(safe-area-inset-left));
+  right: auto;
+  top: max(10px, env(safe-area-inset-top));
+  width: 112px;
+  height: 112px;
+  border: 2px solid #e8e8e8;
+  border-radius: 50%;
+  background: #172b27dd;
+  box-shadow: 0 2px 10px #000b;
+}
+
+#hud {
+  top: max(128px, calc(env(safe-area-inset-top) + 118px));
+  left: 10px;
+  z-index: 12;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #101820bb;
+}
+
+.game-title {
+  font-size: 10px;
+  color: #ffd54a;
+}
+
+#health {
+  width: 112px;
+  height: 8px;
+  border-color: #ddd;
+}
+
+#matchInfo {
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  gap: 5px;
+}
+
+.match-box {
+  min-width: 58px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #101820dd;
+}
+
+#compass {
+  top: 12px;
+  left: 50%;
+  padding: 5px 10px;
+  background: #101820bb;
+}
+
+#leftActionHUD,
+#rightActionHUD {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(65px, 1fr));
+  gap: 5px;
+  width: 145px;
+  pointer-events: none;
+}
+
+#leftActionHUD {
+  top: 190px;
+  left: max(10px, env(safe-area-inset-left));
+  right: auto;
+}
+
+#rightActionHUD {
+  top: 145px;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: auto;
+}
+
+.hud-action {
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 4px;
+  border: 1px solid #ffffffaa;
+  border-radius: 18px;
+  background: #17212cdd;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  box-shadow: 0 2px 7px #000a;
+  pointer-events: auto;
+}
+
+#fireBtn {
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(112px, calc(env(safe-area-inset-bottom) + 105px));
+  width: 82px;
+  height: 82px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ff5555, #b40000);
+  box-shadow: 0 0 0 5px #ffffff33, 0 3px 12px #000b;
+  font-size: 15px;
+}
+
+#jumpBtn {
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  width: 66px;
+  height: 66px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #1769cddd;
+  box-shadow: 0 3px 10px #000b;
+}
+
+#crouchBtn {
+  right: max(110px, calc(env(safe-area-inset-right) + 105px));
+  bottom: max(30px, env(safe-area-inset-bottom));
+  padding: 10px 12px;
+  border-radius: 22px;
+  background: #263746ee;
+}
+
+#joystick {
+  left: max(20px, env(safe-area-inset-left));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  width: 112px;
+  height: 112px;
+  border: 2px solid #ffffffaa;
+  background: #17212c88;
+  box-shadow: 0 3px 12px #0008;
+}
+
+#stick {
+  width: 48px;
+  height: 48px;
+  background: #dce7f0dd;
+  border: 2px solid white;
+}
+
+#weaponHUD {
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  gap: 4px;
+}
+
+.weapon-slot {
+  min-width: 55px;
+  padding: 9px 6px;
+  border: 1px solid #ffffffaa;
+  border-radius: 6px;
+  background: #101820e8;
+  font-size: 9px;
+}
+
+.weapon-slot.active {
+  border: 2px solid #ffd54a;
+  background: #55451c;
+  color: #ffe078;
+}
+
+#ammoInfo {
+  top: 72px;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: auto;
+  padding: 7px 10px;
+  border: 1px solid #ffffff77;
+  background: #101820dd;
+  border-radius: 6px;
+}
+
+#controls-hint {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  #minimap {
+    width: 96px;
+    height: 96px;
+  }
+
+  #hud {
+    top: max(108px, calc(env(safe-area-inset-top) + 100px));
+  }
+
+  #leftActionHUD {
+    top: 172px;
+    width: 132px;
+  }
+
+  #rightActionHUD {
+    top: 125px;
+    width: 132px;
+  }
+
+  .hud-action {
+    min-height: 32px;
+    font-size: 8px;
+  }
+
+  #fireBtn {
+    width: 72px;
+    height: 72px;
+    bottom: max(105px, calc(env(safe-area-inset-bottom) + 100px));
+  }
+
+  #jumpBtn {
+    width: 60px;
+    height: 60px;
+  }
+
+  .weapon-slot {
+    min-width: 48px;
+    padding: 8px 4px;
+    font-size: 8px;
+  }
+}
+
+@media (max-height: 500px) {
+  #minimap {
+    width: 88px;
+    height: 88px;
+  }
+
+  #hud {
+    top: 96px;
+  }
+
+  #leftActionHUD {
+    top: 145px;
+  }
+
+  #rightActionHUD {
+    top: 105px;
+  }
+
+  #leftActionHUD,
+  #rightActionHUD {
+    gap: 3px;
+  }
+
+  .hud-action {
+    min-height: 27px;
+    padding: 3px;
+    font-size: 8px;
+  }
+
+  #fireBtn {
+    width: 62px;
+    height: 62px;
+    bottom: 75px;
+  }
+
+  #jumpBtn {
+    width: 52px;
+    height: 52px;
+    bottom: 10px;
+  }
+
+  #joystick {
+    width: 90px;
+    height: 90px;
+    bottom: 10px;
+  }
+
+  #weaponHUD {
+    bottom: 5px;
+  }
+}

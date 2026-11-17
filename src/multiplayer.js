@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import * as THREE from 'three';
 
 export function createMultiplayer({ scene, player, statusText }) {
-  const socket = io('http://localhost:3001');
+  const socket = io(import.meta.env.VITE_MULTIPLAYER_URL || 'http://localhost:3001');
 
   const remotePlayers = new Map();
 
@@ -30,7 +30,11 @@ export function createMultiplayer({ scene, player, statusText }) {
   const crouchButton = document.getElementById('crouchBtn');
   const reloadButton = document.getElementById('reloadBtn');
   const medkitButton = document.getElementById('medkitBtn');
+  const grenadeButton = document.getElementById('grenadeBtn');
   let medkitsRemaining = 3;
+  let grenadesRemaining = 3;
+  const grenadeVisuals = [];
+  const explosionVisuals = [];
   let reloading = false;
 
   function updateAmmo() {
@@ -42,6 +46,125 @@ export function createMultiplayer({ scene, player, statusText }) {
   function updateMedkitButton() {
     if (medkitButton) {
       medkitButton.textContent = `✚ MEDKIT ${medkitsRemaining}`;
+    }
+  }
+
+
+  function updateGrenadeButton() {
+    if (grenadeButton) {
+      grenadeButton.textContent = `💣 GRENADE ${grenadesRemaining}`;
+    }
+  }
+
+  function throwGrenade() {
+    if (!socket.connected || !joined) {
+      statusText.textContent = 'Not connected to server';
+      return;
+    }
+
+    if (grenadesRemaining <= 0) {
+      statusText.textContent = 'No grenades left';
+      return;
+    }
+
+    const angle = player.rotation.y;
+
+    socket.emit('throwGrenade', {
+      direction: {
+        x: Math.sin(angle),
+        z: Math.cos(angle)
+      }
+    });
+  }
+
+  function addGrenadeProjectile(data) {
+    if (!data?.start || !data?.target) return;
+
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 12, 10),
+      new THREE.MeshStandardMaterial({
+        color: 0x252525,
+        roughness: 0.8
+      })
+    );
+
+    const start = new THREE.Vector3(
+      data.start.x, data.start.y, data.start.z
+    );
+    const target = new THREE.Vector3(
+      data.target.x, data.target.y, data.target.z
+    );
+
+    mesh.position.copy(start);
+    scene.add(mesh);
+
+    grenadeVisuals.push({
+      mesh,
+      start,
+      target,
+      elapsed: 0,
+      duration: (data.duration || 1200) / 1000
+    });
+  }
+
+  function addExplosion(data) {
+    if (!data?.position) return;
+
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 12),
+      new THREE.MeshBasicMaterial({
+        color: 0xff7a18,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false
+      })
+    );
+
+    mesh.position.set(
+      data.position.x,
+      data.position.y + 0.8,
+      data.position.z
+    );
+
+    scene.add(mesh);
+    explosionVisuals.push({ mesh, elapsed: 0 });
+  }
+
+  function updateGrenadeEffects(dt) {
+    for (let i = grenadeVisuals.length - 1; i >= 0; i--) {
+      const item = grenadeVisuals[i];
+      item.elapsed += dt;
+
+      const progress = Math.min(1, item.elapsed / item.duration);
+      item.mesh.position.lerpVectors(
+        item.start, item.target, progress
+      );
+      item.mesh.position.y += Math.sin(progress * Math.PI) * 2.2;
+
+      if (progress >= 1) {
+        scene.remove(item.mesh);
+        item.mesh.geometry.dispose();
+        item.mesh.material.dispose();
+        grenadeVisuals.splice(i, 1);
+      }
+    }
+
+    for (let i = explosionVisuals.length - 1; i >= 0; i--) {
+      const item = explosionVisuals[i];
+      item.elapsed += dt;
+
+      const progress = Math.min(1, item.elapsed / 0.55);
+      const scale = 0.5 + progress * 5;
+
+      item.mesh.scale.setScalar(scale);
+      item.mesh.material.opacity = 0.65 * (1 - progress);
+
+      if (progress >= 1) {
+        scene.remove(item.mesh);
+        item.mesh.geometry.dispose();
+        item.mesh.material.dispose();
+        explosionVisuals.splice(i, 1);
+      }
     }
   }
 
@@ -221,6 +344,47 @@ export function createMultiplayer({ scene, player, statusText }) {
   }
 
   // Server connection
+
+  const gameRoot = document.getElementById('game') || document.body;
+
+  const killCounter = document.createElement('div');
+  killCounter.id = 'killCounter';
+  killCounter.textContent = '☠ KILLS: 0';
+  Object.assign(killCounter.style, {
+    position:'fixed', top:'75px', right:'12px', zIndex:'5000',
+    padding:'10px 14px', color:'#fff', background:'#111c',
+    border:'1px solid #ffb000', borderRadius:'10px',
+    fontWeight:'bold'
+  });
+  gameRoot.appendChild(killCounter);
+
+  const deathOverlay = document.createElement('div');
+  Object.assign(deathOverlay.style, {
+    display:'none', position:'fixed', inset:'0', zIndex:'10000',
+    background:'#000d', color:'#fff', alignItems:'center',
+    justifyContent:'center', flexDirection:'column', gap:'18px'
+  });
+
+  const deathTitle = document.createElement('h1');
+  deathTitle.textContent = 'YOU ARE ELIMINATED';
+
+  const respawnButton = document.createElement('button');
+  respawnButton.textContent = '⟳ RESPAWN';
+  Object.assign(respawnButton.style, {
+    padding:'15px 35px', fontSize:'20px', fontWeight:'bold',
+    color:'#111', background:'#ffb000', border:'0', borderRadius:'10px'
+  });
+
+  deathOverlay.append(deathTitle, respawnButton);
+  gameRoot.appendChild(deathOverlay);
+
+  respawnButton.addEventListener('click', () => {
+    if (!socket.connected) return;
+    respawnButton.disabled = true;
+    respawnButton.textContent = 'RESPAWNING...';
+    socket.emit('respawn');
+  });
+
   socket.on('connect', () => {
     statusText.textContent = 'Online - Joining room...';
 
@@ -232,13 +396,17 @@ export function createMultiplayer({ scene, player, statusText }) {
   });
 
   socket.on('joined', data => {
+    const own = data?.players?.find(p => p.id === socket.id);
+    killCounter.textContent = `☠ KILLS: ${Number(own?.kills || 0)}`;
+
     if (!data || !Array.isArray(data.players)) return;
 
     joined = true;
-    medkitsRemaining = Number(
-      data.players.find(p => p.id === socket.id)?.medkits ?? 3
-    );
+    const ownPlayer = data.players.find(p => p.id === socket.id);
+    medkitsRemaining = Number(ownPlayer?.medkits ?? 3);
+    grenadesRemaining = Number(ownPlayer?.grenades ?? 3);
     updateMedkitButton();
+    updateGrenadeButton();
 
     data.players.forEach(addPlayer);
 
@@ -303,12 +471,59 @@ export function createMultiplayer({ scene, player, statusText }) {
     }
   });
 
+
+  socket.on('grenadeResult', data => {
+    if (!data) return;
+
+    if (Number.isFinite(data.grenades)) {
+      grenadesRemaining = data.grenades;
+      updateGrenadeButton();
+    }
+
+    if (data.success) {
+      statusText.textContent = 'Grenade thrown!';
+    } else if (data.reason) {
+      statusText.textContent = data.reason;
+    }
+  });
+
+  socket.on('grenadeThrown', addGrenadeProjectile);
+  socket.on('grenadeExploded', data => {
+    addExplosion(data);
+    statusText.textContent = 'GRENADE EXPLOSION!';
+  });
+
+
+  socket.on('killCount', data => {
+    if (data?.id === socket.id) {
+      killCounter.textContent = `☠ KILLS: ${Number(data.kills || 0)}`;
+    }
+  });
+
+  socket.on('playerRespawned', data => {
+    if (!data) return;
+    if (data.id === socket.id) {
+      player.position.set(Number(data.x)||0, Number(data.y)||0, Number(data.z)||0);
+      updateHealth(data.hp);
+      deathOverlay.style.display = 'none';
+      respawnButton.disabled = false;
+      respawnButton.textContent = '⟳ RESPAWN';
+      statusText.textContent = 'Back in battle!';
+    } else {
+      addPlayer(data);
+      updateAliveCount();
+    }
+  });
+
   socket.on('playerDied', data => {
     if (!data) return;
 
     if (data.id === socket.id) {
       updateHealth(0);
       statusText.textContent = 'YOU ARE ELIMINATED!';
+      deathOverlay.style.display = 'flex';
+      respawnButton.disabled = false;
+      respawnButton.textContent = '⟳ RESPAWN';
     } else {
       removePlayer(data.id);
       statusText.textContent = 'Enemy eliminated!';
@@ -362,6 +577,10 @@ export function createMultiplayer({ scene, player, statusText }) {
     });
   }
 
+  if (grenadeButton) {
+    grenadeButton.addEventListener('click', throwGrenade);
+  }
+
   if (reloadButton) {
     reloadButton.addEventListener('click', reloadWeapon);
   }
@@ -393,9 +612,12 @@ export function createMultiplayer({ scene, player, statusText }) {
 
   selectWeapon('pistol');
   updateMedkitButton();
+  updateGrenadeButton();
 
   return {
     update(dt) {
+      updateGrenadeEffects(dt);
+
       if (joined && socket.connected) {
         sendTimer += dt;
 
